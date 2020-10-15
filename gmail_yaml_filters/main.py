@@ -35,8 +35,8 @@ yaml.Loader.add_constructor('tag:yaml.org,2002:str', construct_yaml_str)
 yaml.SafeLoader.add_constructor('tag:yaml.org,2002:str', construct_yaml_str)
 
 
-def ruleset_to_xml(ruleset, pretty_print=True, encoding='utf8'):
-    dom = ruleset_to_etree(ruleset)
+def ruleset_to_xml(ruleset, pretty_print=True, encoding='utf8', ordered=True):
+    dom = ruleset_to_etree(ruleset, ordered)
     chars = etree.tostring(
         dom,
         encoding=encoding,
@@ -68,6 +68,8 @@ def create_parser():
                         help='only prune labels matching the given expression')
     parser.add_argument('--ignore-errors', action='store_true', default=False,
                         help='ignore HTTP errors when deleting labels')
+    parser.add_argument('--keep-order', action='store_true', default=True,
+                        help='Avoid reorderding rules')
     return parser
 
 
@@ -78,20 +80,22 @@ def main():
         default_client_secret = 'client_secret.json'
         data = yaml.safe_load(sys.stdin)
     else:
-        default_client_secret = os.path.join(os.path.dirname(args.filename), 'client_secret.json')
+        default_client_secret = os.path.join(
+            os.path.dirname(args.filename), 'client_secret.json')
         with open(args.filename) as inputf:
             data = yaml.safe_load(inputf)
 
     if not isinstance(data, list):
         data = [data]
 
-    ruleset = RuleSet.from_object(rule for rule in data if not rule.get('ignore'))
+    ruleset = RuleSet.from_object(
+        rule for rule in data if not rule.get('ignore'))
 
     if not args.client_secret:
         args.client_secret = default_client_secret
 
     if args.action == 'xml':
-        print(ruleset_to_xml(ruleset))
+        print(ruleset_to_xml(ruleset, ordered=(not args.keep_order)))
         return
 
     # every command below this point involves the Gmail API
@@ -102,12 +106,15 @@ def main():
     if args.action == 'upload':
         upload_ruleset(ruleset, service=gmail, dry_run=args.dry_run)
     elif args.action == 'prune':
-        prune_filters_not_in_ruleset(ruleset, service=gmail, dry_run=args.dry_run)
+        prune_filters_not_in_ruleset(
+            ruleset, service=gmail, dry_run=args.dry_run)
     elif args.action == 'upload_prune':
         upload_ruleset(ruleset, service=gmail, dry_run=args.dry_run)
-        prune_filters_not_in_ruleset(ruleset, service=gmail, dry_run=args.dry_run)
+        prune_filters_not_in_ruleset(
+            ruleset, service=gmail, dry_run=args.dry_run)
     elif args.action == 'prune_labels':
-        match = re.compile(args.only_matching).match if args.only_matching else None
+        match = re.compile(
+            args.only_matching).match if args.only_matching else None
         prune_labels_not_in_ruleset(ruleset, service=gmail, match=match, dry_run=args.dry_run,
                                     continue_on_http_error=args.ignore_errors)
     else:

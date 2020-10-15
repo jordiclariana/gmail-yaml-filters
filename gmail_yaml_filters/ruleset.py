@@ -200,7 +200,8 @@ class RuleCondition(_RuleConstruction):
     }
 
     def __init__(self, key, value, validate_value=True, negate=False):
-        super(RuleCondition, self).__init__(key, value, validate_value=validate_value)
+        super(RuleCondition, self).__init__(
+            key, value, validate_value=validate_value)
         self.negate = negate
 
     def negated(self):
@@ -221,7 +222,8 @@ class RuleCondition(_RuleConstruction):
 
     @classmethod
     def joined_by(cls, joiner, key, values):
-        validated = [cls.validate_value(key, value) for value in sorted(values)]
+        validated = [cls.validate_value(key, value)
+                     for value in sorted(values)]
         joined = '({0})'.format(joiner.join(validated))
         return cls(key, joined, validate_value=False)
 
@@ -297,15 +299,18 @@ def build_compound_conditions(key, compound):
     conditions = []
 
     if 'any' in compound:
-        value = [compound['any']] if isinstance(compound['any'], six.string_types) else compound['any']
+        value = [compound['any']] if isinstance(
+            compound['any'], six.string_types) else compound['any']
         conditions.append(RuleCondition.or_(key, value))
 
     if 'all' in compound:
-        value = [compound['all']] if isinstance(compound['all'], six.string_types) else compound['all']
+        value = [compound['all']] if isinstance(
+            compound['all'], six.string_types) else compound['all']
         conditions.append(RuleCondition.and_(key, value))
 
     if 'not' in compound:
-        conditions.extend(rule.negated() for rule in build_compound_conditions(key, compound['not']))
+        conditions.extend(rule.negated()
+                          for rule in build_compound_conditions(key, compound['not']))
 
     return sorted(conditions)
 
@@ -370,7 +375,8 @@ class Rule(object):
 
     def __repr__(self):
         rule_reprs = [
-            '{0}={1!r}'.format(key, sorted(value) if isinstance(value, list) else value)
+            '{0}={1!r}'.format(key, sorted(
+                value) if isinstance(value, list) else value)
             for key, value in sorted(six.iteritems(self.data))
         ]
         return '{0}({1})'.format(self.__class__.__name__, ', '.join(sorted(rule_reprs)))
@@ -437,7 +443,8 @@ class Rule(object):
         for condition in list(chain.from_iterable(six.itervalues(self._conditions))):
             data.setdefault(condition.key, []).append(condition)
         for action in list(chain.from_iterable(six.itervalues(self._actions))):
-            data[action.key] = [action]  # you can only take a given action _once_
+            # you can only take a given action _once_
+            data[action.key] = [action]
         return data
 
     @property
@@ -475,9 +482,11 @@ class Rule(object):
                 continue
             construct_class = constructs[0].__class__  # we shouldn't ever mix
             if len(constructs) == 1:
-                flattened[key] = construct_class(key, constructs[0].value, validate_value=False)
+                flattened[key] = construct_class(
+                    key, constructs[0].value, validate_value=False)
             else:
-                flattened[key] = construct_class.and_(key, sorted(c.value for c in constructs))
+                flattened[key] = construct_class.and_(
+                    key, sorted(c.value for c in constructs))
         return flattened
 
     def apply_format(self, **format_vars):
@@ -544,7 +553,8 @@ class RuleSet(object):
         elif isinstance(obj, Iterable):
             return cls.from_iterable(obj, base_rule=base_rule)
         else:
-            raise ValueError('Cannot build {0} from {1}'.format(cls, type(obj)))
+            raise ValueError(
+                'Cannot build {0} from {1}'.format(cls, type(obj)))
 
     @classmethod
     def from_dict(cls, data, base_rule=None):
@@ -563,7 +573,8 @@ class RuleSet(object):
         ruleset.add(new_rule)
 
         if child_rule_data:
-            ruleset.update(cls.from_object(child_rule_data, base_rule=new_rule))
+            ruleset.update(cls.from_object(
+                child_rule_data, base_rule=new_rule))
 
         return ruleset
 
@@ -581,7 +592,8 @@ class RuleSet(object):
 
         ruleset = cls()
         for index, item in enumerate(data[cls.foreach_key]):
-            item_ruleset = cls.from_object(data[cls.foreach_rule_key], base_rule=base_rule)
+            item_ruleset = cls.from_object(
+                data[cls.foreach_rule_key], base_rule=base_rule)
             for rule in item_ruleset:
                 if isinstance(item, dict):
                     rule.apply_format(index=index, **item)
@@ -592,20 +604,24 @@ class RuleSet(object):
         return ruleset
 
 
-def ruleset_to_etree(ruleset):
+def ruleset_to_etree(ruleset, ordered=True):
     xml = etree.Element('feed', nsmap={
         None: 'http://www.w3.org/2005/Atom',
         'apps': 'http://schemas.google.com/apps/2006',
     })
     etree.SubElement(xml, 'title').text = 'Mail Filters'
-    for rule in sorted(ruleset):
+    if ordered:
+        ruleset = sorted(ruleset)
+    for rule in ruleset:
         if not rule.publishable:
             continue
         entry = etree.SubElement(xml, 'entry')
         etree.SubElement(entry, 'category', term='filter')
         etree.SubElement(entry, 'title').text = 'Mail Filter'
-        etree.SubElement(entry, 'id').text = 'tag:mail.google.com,2008:filter:{0}'.format(abs(hash(rule)))
-        etree.SubElement(entry, 'updated').text = datetime.now().replace(microsecond=0).isoformat() + 'Z'
+        etree.SubElement(entry, 'id').text = 'tag:mail.google.com,2008:filter:{0}'.format(
+            abs(hash(rule)))
+        etree.SubElement(entry, 'updated').text = datetime.now().replace(
+            microsecond=0).isoformat() + 'Z'
         etree.SubElement(entry, 'content')
         for construct in sorted(six.itervalues(rule.flatten()), key=attrgetter('key')):
             etree.SubElement(

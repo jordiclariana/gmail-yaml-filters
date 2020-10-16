@@ -89,6 +89,7 @@ class GmailLabels(object):
 
     See https://developers.google.com/gmail/api/v1/reference/users/labels
     """
+
     def __init__(self, gmail, dry_run=False):
         self.gmail = gmail
         self.dry_run = dry_run
@@ -198,6 +199,16 @@ def upload_ruleset(ruleset, service=None, dry_run=False):
             request = service.users().settings().filters().create(userId='me', body=filter_data)
             if not dry_run:
                 request.execute()
+
+
+def prune_all_filters(service=None, dry_run=False):
+    service = service or get_gmail_service()
+    known_filters = GmailFilters(service)
+    for f in known_filters:
+        print('Deleting', f['id'], f['criteria'], f['action'], file=sys.stderr)
+        request = service.users().settings().filters().delete(userId='me', id=f['id'])
+        if not dry_run:
+            request.execute()
 
 
 def find_filters_not_in_ruleset(ruleset, service, dry_run):

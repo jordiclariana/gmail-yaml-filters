@@ -19,6 +19,7 @@ from .upload import get_gmail_service
 from .upload import upload_ruleset
 from .upload import prune_filters_not_in_ruleset
 from .upload import prune_labels_not_in_ruleset
+from .upload import prune_all_filters
 
 
 """
@@ -70,6 +71,8 @@ def create_parser():
                         help='ignore HTTP errors when deleting labels')
     parser.add_argument('--keep-order', action='store_true', default=True,
                         help='Avoid reorderding rules')
+    parser.add_argument('--prune-first', action='store_true', default=False,
+                        help='Prune all filters first, before uploading')
     return parser
 
 
@@ -102,6 +105,9 @@ def main():
 
     credentials = get_gmail_credentials(client_secret_path=args.client_secret)
     gmail = get_gmail_service(credentials)
+
+    if args.prune_first:
+        prune_all_filters(service=gmail, dry_run=args.dry_run)
 
     if args.action == 'upload':
         upload_ruleset(ruleset, service=gmail, dry_run=args.dry_run)
